@@ -1,0 +1,44 @@
+name: Build and Run Contact Filter
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Allows manual triggering from the Actions tab
+
+jobs:
+  build_and_run:
+    name: Build and Run
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build the project
+        run: cargo build --verbose --release
+
+      - name: Run the contact filter
+        run: |
+          ./target/release/contactfilter input_baofeng_dm32uv.csv countries.txt input_baofeng_dm32uv_filtered.csv
+
+      - name: Upload filtered CSV as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: filtered-contacts
+          path: input_baofeng_dm32uv_filtered.csv
