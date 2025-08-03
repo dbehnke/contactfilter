@@ -1,6 +1,6 @@
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::env;
 use std::error::Error;
 use std::fs;
 
@@ -32,29 +32,38 @@ struct Contact {
     alert_call: String,
 }
 
+/// A simple command-line utility to filter a CSV file of contacts
+/// based on a list of countries, with prioritization and size limiting.
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Path to the input CSV file.
+    input_csv: String,
+    /// Path to the country filter file (one country per line).
+    filter_file: String,
+    /// Path for the new, filtered output CSV file.
+    output_csv: String,
+
+    /// The country to prioritize, ensuring its contacts appear first.
+    #[arg(long, default_value = "United States")]
+    priority_country: String,
+
+    /// The maximum number of contacts to include in the final output.
+    #[arg(long, default_value_t = 50_000)]
+    limit: usize,
+}
+
 /// The main function returns a Result, which is a common and idiomatic
 /// way to handle errors in Rust applications.
 fn main() -> Result<(), Box<dyn Error>> {
     // --- 1. Argument Parsing ---
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 4 {
-        eprintln!("Usage: {} <input_csv> <filter_file> <output_csv>", args[0]);
-        std::process::exit(1);
-    }
-
-    let input_path = &args[1];
-    let filter_path = &args[2];
-    let output_path = &args[3];
-
-    println!("Input file: {}", input_path);
-    println!("Filter file: {}", filter_path);
-    println!("Output file: {}", output_path);
+    let cli = Cli::parse();
 
     // --- 2. Load Filtered Countries ---
     // We read the filter file and load the countries into a HashSet.
     // A HashSet provides very fast lookups (O(1) on average), which is
     // much more efficient than searching through a list for every row.
-    let filter_content = fs::read_to_string(filter_path)?;
+    let filter_content = fs::read_to_string(&cli.filter_file)?;
     let countries_to_keep: HashSet<String> = filter_content
         .lines()
         .map(String::from)
@@ -62,37 +71,71 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Filtering for {} countries.", countries_to_keep.len());
 
-    // --- 3. Process the CSV ---
-    // Create a CSV reader and writer.
-    let mut rdr = csv::Reader::from_path(input_path)?;
-    let mut wtr = csv::Writer::from_path(output_path)?;
+    // --- 3. Phase 1: Read and Filter Contacts ---
+    // We'll read all matching contacts into memory first. This allows us
+    // to prioritize and truncate the list before writing to the output file.
+    println!("\n--- Phase 1: Reading and filtering contacts from {}... ---", cli.input_csv);
+    let mut rdr = csv::Reader::from_path(&cli.input_csv)?;
+    let headers = rdr.headers()?.clone(); // Store headers for later use.
 
+    let mut us_contacts: Vec<Contact> = Vec::new();
+    let mut other_contacts: Vec<Contact> = Vec::new();
     let mut records_read = 0;
-    let mut records_written = 0;
 
-    // We write the headers to the output file first.
-    wtr.write_record(rdr.headers()?)?;
-
-    // Iterate over each record in the input CSV.
-    // `deserialize` automatically converts each row into our `Contact` struct.
     for result in rdr.deserialize() {
         let record: Contact = result?;
         records_read += 1;
 
-        // Check if the record's country is in our filter set.
+        // If the contact's country is in our list of countries to keep...
         if countries_to_keep.contains(&record.country) {
-            // If it is, serialize it back into a CSV row and write it.
-            wtr.serialize(&record)?;
-            records_written += 1;
+            // ...separate the US contacts from the others to enforce priority.
+            if record.country == cli.priority_country {
+                us_contacts.push(record);
+            } else {
+                other_contacts.push(record);
+            }
         }
+    }
+    println!("Read {} records.", records_read);
+    println!("Found {} contacts from the priority country ({}).", us_contacts.len(), &cli.priority_country);
+    println!("Found {} contacts from other filtered countries.", other_contacts.len());
+
+    // --- 4. Phase 2: Prioritize and Truncate ---
+    println!("\n--- Phase 2: Prioritizing list and truncating to {} records... ---", cli.limit);
+
+    // Combine the lists, with US contacts taking precedence at the start of the list.
+    let mut final_contacts = us_contacts;
+    final_contacts.append(&mut other_contacts);
+
+    let total_filtered = final_contacts.len();
+    println!("Total filtered contacts before truncation: {}", total_filtered);
+
+    // If the combined list exceeds the limit, truncate it.
+    if final_contacts.len() > cli.limit {
+        final_contacts.truncate(cli.limit);
+        println!("List truncated to the first {} records.", cli.limit);
+    }
+
+    // --- 5. Phase 3: Write to Output File ---
+    println!("\n--- Phase 3: Writing final list to output file... ---");
+    // We use a WriterBuilder to explicitly disable automatic header writing.
+    // This is because we are manually writing the headers we captured from
+    // the input file, ensuring they are preserved exactly.
+    let mut wtr = csv::WriterBuilder::new()
+        .has_headers(false)
+        .from_path(&cli.output_csv)?;
+    wtr.write_record(&headers)?; // Write the headers we saved earlier.
+
+    let records_to_write_count = final_contacts.len();
+    for record in final_contacts {
+        wtr.serialize(record)?;
     }
 
     // It's good practice to flush the writer to ensure all data is written to the file.
     wtr.flush()?;
 
     println!("\nProcessing complete!");
-    println!("Read {} records.", records_read);
-    println!("Wrote {} records.", records_written);
+    println!("Wrote {} records to {}.", records_to_write_count, &cli.output_csv);
 
     Ok(())
 }

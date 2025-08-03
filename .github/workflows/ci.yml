@@ -44,6 +44,9 @@ jobs:
             target/
           key: ${{ matrix.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Run tests
+        run: cargo test --verbose
+
       - name: Build the binary
         run: cargo build --verbose --release --target ${{ matrix.target }}
 
@@ -68,6 +71,9 @@ jobs:
     needs: build
     permissions:
       contents: write # Needed to create releases and upload assets
+    env:
+      # Add more space-separated input files here in the future
+      INPUT_FILES: "input_baofeng_dm32uv.csv"
 
     steps:
       - name: Checkout repository
@@ -98,16 +104,34 @@ jobs:
             echo "NAME=Nightly Build" >> $GITHUB_OUTPUT
             echo "PRERELEASE=true" >> $GITHUB_OUTPUT
           fi
-          echo "FILENAME=filtered-contacts.csv" >> $GITHUB_ENV
 
-      - name: Run the contact filter
+      - name: Run contact filter for each input file
+        id: run_filter
         run: |
-          ./release-assets/contactfilter-linux-x86_64 input_baofeng_dm32uv.csv countries.txt "${{ env.FILENAME }}"
+          output_files_array=()
+          for input_file in ${{ env.INPUT_FILES }}; do
+            # NOTE: This assumes input files like 'input_baofeng_dm32uv.csv' and 'countries.txt'
+            # are present in the repository root during the CI run.
+            if [ ! -f "$input_file" ]; then
+              echo "::warning file=$input_file::Input file not found, skipping."
+              continue
+            fi
+
+            base_name="${input_file%.*}"
+            output_file="${base_name}-filtered.csv"
+            echo "Processing '$input_file' -> '$output_file'"
+            ./release-assets/contactfilter-linux-x86_64 "$input_file" countries.txt "$output_file"
+            output_files_array+=("$output_file")
+          done
+
+          output_files_csv=$(IFS=,; echo "${output_files_array[*]}")
+          echo "Generated files: $output_files_csv"
+          echo "output_files=$output_files_csv" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "release-assets/*,${{ env.FILENAME }}"
+          artifacts: "release-assets/*,${{ steps.run_filter.outputs.output_files }}"
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.generate_info.outputs.TAG }}
           name: ${{ steps.generate_info.outputs.NAME }}
