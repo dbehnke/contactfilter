@@ -77,15 +77,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-assets
+          merge-multiple: true
 
       - name: Prepare release assets
+        shell: bash
         run: |
-          # The download-artifact action creates a directory for each artifact.
-          # We move all the files into the parent 'release-assets' directory for easier access.
-          find release-assets -type f -exec mv {} release-assets/ \;
           # Make the linux binary executable so we can run it in the next step.
           chmod +x release-assets/contactfilter-linux-x86_64
-        shell: bash
 
       - name: Generate release info
         id: generate_info
