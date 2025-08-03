@@ -1,13 +1,15 @@
-name: Build and Run Contact Filter
+name: Build and Release
 
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*'
   workflow_dispatch: # Allows manual triggering from the Actions tab
 
 jobs:
-  build_and_run:
-    name: Build and Run
+  release:
+    name: Build and Release
     runs-on: ubuntu-latest
 
     steps:
@@ -33,12 +35,36 @@ jobs:
       - name: Build the project
         run: cargo build --verbose --release
 
+      - name: Generate version and filename
+        id: generate_vars
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${{ github.ref_name }}
+          else
+            VERSION="$(date +'%Y%m%d')-$(echo $GITHUB_SHA | cut -c1-7)"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "FILENAME=filtered-contacts-${VERSION}.csv" >> $GITHUB_ENV
+
       - name: Run the contact filter
         run: |
-          ./target/release/contactfilter input_baofeng_dm32uv.csv countries.txt input_baofeng_dm32uv_filtered.csv
+          ./target/release/contactfilter input_baofeng_dm32uv.csv countries.txt "${{ env.FILENAME }}"
 
-      - name: Upload filtered CSV as an artifact
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: ncipollo/release-action@v1
         with:
-          name: filtered-contacts
-          path: input_baofeng_dm32uv_filtered.csv
+          artifacts: "${{ env.FILENAME }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          prerelease: false
+
+      - name: Create Pre-release
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ env.FILENAME }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: nightly
+          name: Nightly Build ${{ env.VERSION }}
+          prerelease: true
+          allowUpdates: true
