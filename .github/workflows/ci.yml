@@ -65,50 +65,53 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: build # This job depends on the build job completing successfully
+    needs: build
+    permissions:
+      contents: write # Needed to create releases and upload assets
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        # We still need rust to run the script and generate the CSV
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Download all built binaries
+        uses: actions/download-artifact@v4
         with:
-          toolchain: stable
+          path: release-assets
 
-      - name: Build the project (for CSV generation)
-        run: cargo build --verbose --release
+      - name: Prepare release assets
+        run: |
+          # The download-artifact action creates a directory for each artifact.
+          # We move all the files into the parent 'release-assets' directory for easier access.
+          find release-assets -type f -exec mv {} release-assets/ \;
+          # Make the linux binary executable so we can run it in the next step.
+          chmod +x release-assets/contactfilter-linux-x86_64
+        shell: bash
 
-      - name: Generate version and filename
-        id: generate_vars
+      - name: Generate release info
+        id: generate_info
+        shell: bash
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "TAG=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "NAME=Release ${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "PRERELEASE=false" >> $GITHUB_OUTPUT
           else
-            VERSION="$(date +'%Y%m%d')-$(echo $GITHUB_SHA | cut -c1-7)"
+            echo "TAG=nightly" >> $GITHUB_OUTPUT
+            echo "NAME=Nightly Build" >> $GITHUB_OUTPUT
+            echo "PRERELEASE=true" >> $GITHUB_OUTPUT
           fi
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "FILENAME=filtered-contacts-${VERSION}.csv" >> $GITHUB_ENV
+          echo "FILENAME=filtered-contacts.csv" >> $GITHUB_ENV
 
       - name: Run the contact filter
         run: |
-          ./target/release/contactfilter input_baofeng_dm32uv.csv countries.txt "${{ env.FILENAME }}"
+          ./release-assets/contactfilter-linux-x86_64 input_baofeng_dm32uv.csv countries.txt "${{ env.FILENAME }}"
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "${{ env.FILENAME }}"
+          artifacts: "release-assets/*,${{ env.FILENAME }}"
           token: ${{ secrets.GITHUB_TOKEN }}
-          prerelease: false
-
-      - name: Create Pre-release
-        if: github.ref == 'refs/heads/main'
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "${{ env.FILENAME }}"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: nightly
-          name: Nightly Build ${{ env.VERSION }}
-          prerelease: true
-          allowUpdates: true
+          tag: ${{ steps.generate_info.outputs.TAG }}
+          name: ${{ steps.generate_info.outputs.NAME }}
+          prerelease: ${{ steps.generate_info.outputs.PRERELEASE }}
+          allowUpdates: true # Allows overwriting the 'nightly' release
