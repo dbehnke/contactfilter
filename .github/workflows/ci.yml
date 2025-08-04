@@ -79,6 +79,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Clean and prepare release directory
+        shell: bash
+        run: rm -rf release-assets && mkdir -p release-assets
+
       - name: Download all built binaries
         uses: actions/download-artifact@v4
         with:
