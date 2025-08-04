@@ -117,7 +117,7 @@ jobs:
           echo "Using timestamp: $TIMESTAMP"
 
           # This array will hold all generated and original files for the release
-          all_artifacts=()
+          all_artifacts=("countries.txt")
 
           for input_file in ${{ env.INPUT_FILES }}; do
             if [ ! -f "$input_file" ]; then
