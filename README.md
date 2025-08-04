@@ -2,18 +2,6 @@
 
 A command-line utility written in Rust to filter large CSV files of contacts. It keeps records based on a specified list of countries, allows prioritizing one country's contacts to appear first, and can limit the final output to a maximum number of records.
 
-## Motivation
-
-This project was born out of a practical need for amateur radio operators using devices with limited contact memory, such as the Baofeng DM-32UV. This particular radio can only store 50,000 digital contacts, while the full worldwide DMR contact list can exceed 200,000 users.
-
-To make the most of this limited space, `contactfilter` provides a way to create a more relevant and compact contact list by:
-
-1.  **Filtering by recent activity**: The intended source CSV is a list of users active within the last 6 months (180 days).
-2.  **Filtering by geography**: It limits the contacts to a curated list of countries where DMR is most popular, such as the United States, Canada, and the United Kingdom.
-3.  **Prioritizing a home country**: It ensures that contacts from your primary country of operation are included first, before the list is truncated to the 50,000 contact limit.
-
-By applying these filters, it's possible to generate a highly optimized contact list that fits within the radio's memory constraints while maximizing the chances of having the contact information for the hams you are most likely to hear.
-
 ## Features
 
 *   **Country-based Filtering**: Filters a CSV file based on a newline-separated list of countries.
@@ -87,7 +75,7 @@ Then, run the program. The following example uses a downloaded binary on Linux.
 ```bash
 # Basic usage
 ./contactfilter-linux-x86_64 \
-  Baofeng_DM-32UV_everything-180days-20250803.csv \
+  /path/to/your/Baofeng_DM-32UV_Everything-180days-20250803.csv \
   countries.txt \
   filtered_contacts.csv
 
