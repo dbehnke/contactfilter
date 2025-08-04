@@ -127,7 +127,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     wtr.write_record(&headers)?; // Write the headers we saved earlier.
 
     let records_to_write_count = final_contacts.len();
-    for record in final_contacts {
+    // Iterate through the final list, renumbering the 'No.' column starting from 1.
+    // We use enumerate() to get a 0-based index, so we add 1 for the row number.
+    for (i, mut record) in final_contacts.into_iter().enumerate() {
+        record.no = (i + 1) as u32;
         wtr.serialize(record)?;
     }
 
