@@ -136,6 +136,14 @@ jobs:
           echo "Final artifact list for release: $artifacts_csv"
           echo "artifacts_list=$artifacts_csv" >> $GITHUB_OUTPUT
 
+      - name: Delete Previous Nightly Release
+        if: steps.generate_info.outputs.TAG == 'nightly'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "A nightly build was triggered. Deleting the previous 'nightly' release and tag to ensure a clean slate."
+          gh release delete nightly --cleanup-tag --yes || echo "Previous nightly release not found. A new one will be created."
+
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
