@@ -307,15 +307,15 @@ func processRadioID(r io.Reader, activeIDs map[int]bool) ([]Contact, error) {
 			return ""
 		}
 
-		idStr := getVal("id")
+		idStr := getVal("radio_id")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
 			continue
 		}
 
 		if activeIDs[id] {
-			fname := getVal("fname")
-			surname := getVal("surname")
+			fname := getVal("first_name")
+			surname := getVal("last_name")
 			name := strings.TrimSpace(fname + " " + surname)
 
 			c := Contact{
