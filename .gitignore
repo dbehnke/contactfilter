@@ -1,2 +1,21 @@
-/target
+# Binaries
+contactfilter
+contactfilter.exe
+
+# GoReleaser
+dist/
+
+# Downloaded Data
+user.csv
+
+# Generated Output
 output.csv
+output_*.csv
+active_contacts-*.csv
+Baofeng_DM-32UV_Contacts_*.csv
+
+# Test Data
+dummy_*.csv
+
+# OS Specific
+.DS_Store
