@@ -1,91 +1,84 @@
 # contactfilter
 
-A command-line utility written in Rust to filter large CSV files of contacts. It keeps records based on a specified list of countries, allows prioritizing one country's contacts to appear first, and can limit the final output to a maximum number of records.
+A command-line utility written in Go to filter large CSV files of contacts. It keeps records based on a specified list of countries, allows prioritizing one country's contacts to appear first, and can limit the final output to a maximum number of records.
+
+It also supports **merging** "Last Heard" data from Brandmeister with the full contact details from RadioID.net, allowing you to create a contact list of only recently active users.
 
 ## Features
 
-*   **Country-based Filtering**: Filters a CSV file based on a newline-separated list of countries.
-*   **Priority Country**: Ensures all contacts from a specific country (e.g., "United States") are placed at the top of the output file.
-*   **Size Limiting**: Truncates the final list to a specified maximum number of contacts.
-*   **Cross-Platform**: Builds and runs on Linux, macOS, and Windows.
-*   **Performant**: Written in Rust for fast processing of large files.
+* **Merge Mode**: Combine Brandmeister "Last Heard" activity with RadioID.net details.
+* **Country-based Filtering**: Filters a CSV file based on a newline-separated list of countries.
+* **Priority Country**: Ensures all contacts from a specific country (e.g., "United States") are placed at the top of the output file.
+* **Size Limiting**: Truncates the final list to a specified maximum number of contacts.
+* **Cross-Platform**: Builds and runs on Linux, macOS, and Windows.
 
 ## Installation
 
-There are two ways to install and use `contactfilter`.
+### From Source
 
-### From GitHub Releases (Recommended)
+You need Go installed on your machine.
 
-Pre-compiled binaries for Linux, macOS, and Windows are available on the project's **GitHub Releases page**. This is the easiest way to get started.
+1. **Clone the repository**:
 
-1.  Go to the latest release.
-2.  Download the appropriate asset for your operating system (e.g., `contactfilter-linux-x86_64`, `contactfilter-macos-x86_64`, or `contactfilter-windows-x86_64.exe`).
-3.  (Optional for Linux/macOS) Make the binary executable: `chmod +x ./contactfilter-linux-x86_64`
-
-### From Source (For Developers)
-
-If you have the Rust toolchain installed, you can build the project from source.
-
-1.  **Clone the repository**:
     ```bash
     git clone https://github.com/dbehnke/contactfilter.git
     cd contactfilter
     ```
 
-2.  **Build the project**:
+2. **Build the project**:
+
     ```bash
-    cargo build --release
+    go build -o contactfilter
     ```
-    The executable will be located at `target/release/contactfilter`.
 
 ## Usage
 
-The program requires a source CSV, a filter file, and a path for the output file.
-
 ### Arguments
 
-`contactfilter <INPUT_CSV> <FILTER_FILE> <OUTPUT_CSV> [OPTIONS]`
-
-*   `<INPUT_CSV>`: Path to the input CSV file.
-*   `<FILTER_FILE>`: Path to a plain text file with one country per line. An example `countries.txt` is included in this repository and in each release.
-*   `<OUTPUT_CSV>`: Path for the new, filtered output CSV file.
-
-### Options
-
-*   `--priority-country <COUNTRY>`: The country to prioritize, ensuring its contacts appear first in the output. [default: `United States`]
-*   `--limit <LIMIT>`: The maximum number of contacts to include in the final output. [default: `50000`]
-*   `-h, --help`: Print help information.
-*   `-V, --version`: Print version information.
-
-### Example
-
-First, create your filter file (or use the one provided in the release assets).
-
-**`countries.txt`:**
-```text
-United States
-Canada
-United Kingdom
-Australia
-New Zealand
+```bash
+./contactfilter [flags] [input-csv] [filter-file] [output-csv]
 ```
 
-Then, run the program. The following example uses a downloaded binary on Linux.
+* `--merge`: Activate merge mode (Brandmeister + RadioID).
+* `--brandmeister-csv`: Path to Brandmeister "Last Heard" CSV (required for merge mode).
+* `--radioid-csv`: Path to RadioID.net `user.csv`. If omitted in merge mode, it is downloaded automatically.
+* `--priority-country`: The country to prioritize (default: "United States").
+* `--limit`: Maximum number of contacts (default: 50000).
+
+### Examples
+
+#### 1. Standard Filtering (Baofeng CSV Input)
+
+Filter an existing Baofeng-format CSV:
 
 ```bash
-# Basic usage
-./contactfilter-linux-x86_64 \
-  /path/to/your/Baofeng_DM-32UV_Everything-180days-20250803.csv \
-  countries.txt \
-  filtered_contacts.csv
-
-# Advanced usage: Prioritize Canada and limit the output to 10,000 contacts
-./contactfilter-linux-x86_64 \
-  input.csv \
-  countries.txt \
-  filtered_canadian_contacts.csv \
-  --priority-country "Canada" \
-  --limit 10000
+./contactfilter \
+  --input-csv input.csv \
+  --filter-file countries.txt \
+  --output-csv filtered.csv
 ```
 
-This will read the source CSV, filter it using the countries listed in `countries.txt`, and create a new `filtered_contacts.csv` file in the current directory.
+#### 2. Merge Mode (Brandmeister + RadioID)
+
+Create a list of active users from your Brandmeister export:
+
+```bash
+./contactfilter \
+  --merge \
+  --brandmeister-csv bm_contacts.csv \
+  --filter-file countries.txt \
+  --output-csv active_contacts.csv
+```
+
+## How to Export Brandmeister Contacts
+
+To get the "Last Heard" list for merge mode:
+
+1. **Log in** to [Brandmeister Network](https://brandmeister.network/).
+2. Go to the **Contacts Export** page: [https://brandmeister.network/?page=contactsexport](https://brandmeister.network/?page=contactsexport).
+3. **Configure the Export**:
+    * **Talkgroups**: You **must** enter a list of talkgroups.
+    * *Example (Michigan Starter)*: `3126,31261,31262,31266,313136,3200449`
+    * **Format**: Select **CSV**.
+4. Click **Run** (or Download) to save the file.
+5. Use this file as the `--brandmeister-csv` input (e.g., `bm_contacts.csv`).
