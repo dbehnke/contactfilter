@@ -395,6 +395,9 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 	defer f.Close()
 
 	w := csv.NewWriter(f)
+	if radioType == "db25d" {
+		w.UseCRLF = true
+	}
 	defer w.Flush()
 
 	var header []string
