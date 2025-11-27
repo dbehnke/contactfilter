@@ -11,10 +11,8 @@ permissions:
   contents: write
 
 jobs:
-  goreleaser:
+  build-and-release:
     runs-on: ubuntu-latest
-    env:
-      BM_CONTACTS_FILE: "bm_contacts.csv"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,38 +44,58 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: contactfilter-binary
+          path: dist/contactfilter_linux_amd64_v1/contactfilter
+
+  generate-contacts:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        radio: [baofeng-dm32uv, anytone, opengd77]
+    env:
+      BM_CONTACTS_FILE: "bm_contacts.csv"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: contactfilter-binary
+          path: ./dist/
+
       - name: Generate Contact List
         shell: bash
         run: |
           TIMESTAMP=$(date +%s)
-          # GoReleaser builds to dist/
-          # We'll use the linux-amd64 binary for generation
-          BINARY="./dist/contactfilter_linux_amd64_v1/contactfilter"
-          
-          if [ ! -f "$BINARY" ]; then
-             # Fallback for snapshot builds where directory structure might differ slightly or if we need to find it
-             BINARY=$(find dist -name "contactfilter" -type f | grep linux_amd64 | head -n 1)
-          fi
-          
+          BINARY="./dist/contactfilter"
           chmod +x "$BINARY"
           
           if [ -f "${{ env.BM_CONTACTS_FILE }}" ]; then
             echo "Found Brandmeister contacts file: ${{ env.BM_CONTACTS_FILE }}"
             
-            output_file="Baofeng_DM-32UV_Contacts_${TIMESTAMP}.csv"
-            echo "Generating '$output_file'..."
+            # Construct output filename based on radio type
+            # Capitalize first letter for aesthetics if desired, but keeping it simple
+            output_file="${{ matrix.radio }}_Contacts_${TIMESTAMP}.csv"
+            echo "Generating '$output_file' for radio: ${{ matrix.radio }}..."
             
             "$BINARY" \
               --merge \
               --brandmeister-csv "${{ env.BM_CONTACTS_FILE }}" \
               --filter-file countries.txt \
-              --output-csv "$output_file"
+              --output-csv "$output_file" \
+              --radio "${{ matrix.radio }}"
               
             # Upload the generated CSV to the release if it's a tagged release
             if [[ "${{ github.ref_type }}" == "tag" ]]; then
               gh release upload ${{ github.ref_name }} "$output_file"
             else
-              # For non-tags, just upload as artifact
               echo "Not a tagged release, skipping upload to release."
             fi
             
@@ -93,5 +111,5 @@ jobs:
         if: env.artifact_path != ''
         uses: actions/upload-artifact@v4
         with:
-          name: generated-contacts
+          name: generated-contacts-${{ matrix.radio }}
           path: ${{ env.artifact_path }}
