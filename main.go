@@ -403,6 +403,8 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 		header = []string{"No.", "Radio ID", "Callsign", "Name", "City", "State", "Country", "Remarks", "Call Type", "Call Alert"}
 	case "opengd77":
 		header = []string{"Radio ID", "Callsign", "Name", "Nickname", "City", "State", "Country", "Remarks"}
+	case "db25d":
+		header = []string{"Serial No", "Contact Alias", "Contact ID", "Name", "City", "State", "Country/Region"}
 	default: // baofeng-dm32uv
 		header = []string{"No.", "ID", "Repeater", "Name", "City", "Province", "Country", "Remark", "Type", "Alert Call"}
 	}
@@ -439,6 +441,16 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 				c.Province,
 				c.Country,
 				c.Remark,
+			}
+		case "db25d":
+			row = []string{
+				strconv.Itoa(i + 1),
+				c.Repeater, // Using Repeater field for Callsign (Contact Alias)
+				strconv.Itoa(c.ID),
+				c.Name,
+				c.City,
+				c.Province,
+				c.Country,
 			}
 		default: // baofeng-dm32uv
 			row = []string{

@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        radio: [baofeng-dm32uv, anytone, opengd77]
+        radio: [baofeng-dm32uv, anytone, opengd77, db25d]
     env:
       BM_CONTACTS_FILE: "bm_contacts.csv"
     steps:
