@@ -445,10 +445,12 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 				c.Remark,
 			}
 		case "db25d":
+			// First-Name logic: First word of Name
+			firstName := strings.Split(c.Name, " ")[0]
 			row = []string{
 				strconv.Itoa(c.ID),
 				c.Repeater, // Using Repeater field for Callsign
-				c.Name,
+				firstName,
 				c.City,
 				c.Province,
 				c.Country + ";", // Append trailing semicolon
