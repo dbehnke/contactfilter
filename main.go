@@ -47,6 +47,8 @@ func main() {
 	brandmeisterCSV := flag.String("brandmeister-csv", "", "Path to Brandmeister 'Last Heard' CSV export (optional alias for input-csv in merge mode).")
 	radioidCSV := flag.String("radioid-csv", "", "Path to RadioID.net user.csv. If not provided in merge mode, it will be downloaded.")
 
+	radioType := flag.String("radio", "baofeng-dm32uv", "The radio output format: baofeng-dm32uv, anytone, opengd77")
+
 	flag.Parse()
 
 	// Handle positional arguments for backward compatibility or ease of use
@@ -192,8 +194,8 @@ func main() {
 	}
 
 	// Write Output
-	fmt.Printf("\nWriting to %s...\n", *outputCSV)
-	if err := writeBaofengCSV(*outputCSV, finalContacts); err != nil {
+	fmt.Printf("\nWriting to %s (Format: %s)...\n", *outputCSV, *radioType)
+	if err := writeCSV(*outputCSV, finalContacts, *radioType); err != nil {
 		fmt.Printf("Error writing output CSV: %v\n", err)
 		os.Exit(1)
 	}
@@ -385,7 +387,7 @@ func readBaofengCSV(path string) ([]Contact, error) {
 	return contacts, nil
 }
 
-func writeBaofengCSV(path string, contacts []Contact) error {
+func writeCSV(path string, contacts []Contact, radioType string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -395,25 +397,64 @@ func writeBaofengCSV(path string, contacts []Contact) error {
 	w := csv.NewWriter(f)
 	defer w.Flush()
 
-	// Header
-	header := []string{"No.", "ID", "Repeater", "Name", "City", "Province", "Country", "Remark", "Type", "Alert Call"}
+	var header []string
+	switch strings.ToLower(radioType) {
+	case "anytone":
+		header = []string{"No.", "Radio ID", "Callsign", "Name", "City", "State", "Country", "Remarks", "Call Type", "Call Alert"}
+	case "opengd77":
+		header = []string{"Radio ID", "Callsign", "Name", "Nickname", "City", "State", "Country", "Remarks"}
+	default: // baofeng-dm32uv
+		header = []string{"No.", "ID", "Repeater", "Name", "City", "Province", "Country", "Remark", "Type", "Alert Call"}
+	}
+
 	if err := w.Write(header); err != nil {
 		return err
 	}
 
 	for i, c := range contacts {
-		row := []string{
-			strconv.Itoa(i + 1),
-			strconv.Itoa(c.ID),
-			c.Repeater,
-			c.Name,
-			c.City,
-			c.Province,
-			c.Country,
-			c.Remark,
-			c.CallType,
-			c.AlertCall,
+		var row []string
+		switch strings.ToLower(radioType) {
+		case "anytone":
+			row = []string{
+				strconv.Itoa(i + 1),
+				strconv.Itoa(c.ID),
+				c.Repeater, // Using Repeater field for Callsign as per read logic
+				c.Name,
+				c.City,
+				c.Province,
+				c.Country,
+				c.Remark,
+				c.CallType,
+				c.AlertCall,
+			}
+		case "opengd77":
+			// Nickname logic: First word of Name
+			nickname := strings.Split(c.Name, " ")[0]
+			row = []string{
+				strconv.Itoa(c.ID),
+				c.Repeater, // Using Repeater field for Callsign
+				c.Name,
+				nickname,
+				c.City,
+				c.Province,
+				c.Country,
+				c.Remark,
+			}
+		default: // baofeng-dm32uv
+			row = []string{
+				strconv.Itoa(i + 1),
+				strconv.Itoa(c.ID),
+				c.Repeater,
+				c.Name,
+				c.City,
+				c.Province,
+				c.Country,
+				c.Remark,
+				c.CallType,
+				c.AlertCall,
+			}
 		}
+
 		if err := w.Write(row); err != nil {
 			return err
 		}
