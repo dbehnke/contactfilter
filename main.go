@@ -404,7 +404,9 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 	case "opengd77":
 		header = []string{"Radio ID", "Callsign", "Name", "Nickname", "City", "State", "Country", "Remarks"}
 	case "db25d":
-		header = []string{"Serial No", "Contact Alias", "Contact ID", "Name", "City", "State", "Country/Region"}
+		// Sample format: Radio-ID,Callsign,First-Name,City,State/Prov,Country;
+		// Note the trailing semicolon in the header and rows
+		header = []string{"Radio-ID", "Callsign", "First-Name", "City", "State/Prov", "Country;"}
 	default: // baofeng-dm32uv
 		header = []string{"No.", "ID", "Repeater", "Name", "City", "Province", "Country", "Remark", "Type", "Alert Call"}
 	}
@@ -444,13 +446,12 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 			}
 		case "db25d":
 			row = []string{
-				strconv.Itoa(i + 1),
-				c.Repeater, // Using Repeater field for Callsign (Contact Alias)
 				strconv.Itoa(c.ID),
+				c.Repeater, // Using Repeater field for Callsign
 				c.Name,
 				c.City,
 				c.Province,
-				c.Country,
+				c.Country + ";", // Append trailing semicolon
 			}
 		default: // baofeng-dm32uv
 			row = []string{
