@@ -410,7 +410,8 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 		}
 
 		// Header
-		header := []string{"No.", "Radio ID", "Callsign", "Name", "City", "State", "Country", "Remarks", "Call Type", "Call Alert"}
+		// New Order: "No.","Radio ID","Call Alert","Name", "City", "Call Type","Callsign","State", "Country", "Remarks"
+		header := []string{"No.", "Radio ID", "Call Alert", "Name", "City", "Call Type", "Callsign", "State", "Country", "Remarks"}
 		if _, err := w.WriteString(quoteAndJoin(header) + "\r\n"); err != nil {
 			return err
 		}
@@ -419,14 +420,14 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 			row := []string{
 				strconv.Itoa(i + 1),
 				strconv.Itoa(c.ID),
-				c.Repeater, // Using Repeater field for Callsign
+				c.AlertCall,
 				c.Name,
 				c.City,
+				"Private Call", // Hardcoded Call Type
+				c.Repeater,     // Using Repeater field for Callsign
 				c.Province,
 				c.Country,
 				c.Remark,
-				c.CallType,
-				c.AlertCall,
 			}
 			if _, err := w.WriteString(quoteAndJoin(row) + "\r\n"); err != nil {
 				return err
