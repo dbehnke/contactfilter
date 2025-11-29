@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"flag"
 	"fmt"
@@ -393,6 +394,46 @@ func writeCSV(path string, contacts []Contact, radioType string) error {
 		return err
 	}
 	defer f.Close()
+
+	if radioType == "anytone" {
+		// Manual writing for Anytone to ensure all fields are quoted and use CRLF
+		w := bufio.NewWriter(f)
+		defer w.Flush()
+
+		// Helper to quote and join fields
+		quoteAndJoin := func(fields []string) string {
+			quoted := make([]string, len(fields))
+			for i, f := range fields {
+				quoted[i] = `"` + strings.ReplaceAll(f, `"`, `""`) + `"`
+			}
+			return strings.Join(quoted, ",")
+		}
+
+		// Header
+		header := []string{"No.", "Radio ID", "Callsign", "Name", "City", "State", "Country", "Remarks", "Call Type", "Call Alert"}
+		if _, err := w.WriteString(quoteAndJoin(header) + "\r\n"); err != nil {
+			return err
+		}
+
+		for i, c := range contacts {
+			row := []string{
+				strconv.Itoa(i + 1),
+				strconv.Itoa(c.ID),
+				c.Repeater, // Using Repeater field for Callsign
+				c.Name,
+				c.City,
+				c.Province,
+				c.Country,
+				c.Remark,
+				c.CallType,
+				c.AlertCall,
+			}
+			if _, err := w.WriteString(quoteAndJoin(row) + "\r\n"); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	w := csv.NewWriter(f)
 	if radioType == "db25d" {
